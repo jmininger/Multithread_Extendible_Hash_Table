@@ -1,0 +1,6 @@
+*.o
+
+main.cpp
+eh_string_int.cc
+eh_string_int.h
+
