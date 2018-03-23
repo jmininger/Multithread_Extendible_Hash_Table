@@ -57,12 +57,21 @@ public:
 //   mutable std::shared_timed_mutex m_table_mutex;
 
 //   std::unordered_map<Bucket*, std::vector<size_t>> m_bucket_to_index;
+  class BucketManager
+  {
+    /* Returns a proper bucket ptr based on a hash*/
+    /* GetBucket(), GrowTable(), SplitBucket() */
 
+    // holds a shared lock
+    // holds an atomic global so changing the global and GetGlobal don't interfere with each other
+    // On table growth, writers lock on the table
+    // If bucket insert fails, lock the BM, try again, and then grow or split
+  };
   class Bucket
   {
     //friend Bucket* ExtendibleHash::SplitBucket(Bucket* p_bucket);
     public:      
-      explicit Bucket(size_t size, int depth);
+      explicit Bucket(size_t size);
       /*  only EH::insert() will use this func after global 
           has been locked, and only thread can lock global at a 
           time, so there is no worry of m_depth being in a 
@@ -70,10 +79,8 @@ public:
       */
       // bool IsDepthsEqual(int global) const;
       // bool GetElem(const K &key, V &val);
-      // bool Insert(const K &key, const V &value);
       // bool Remove(const K &key);
-      int GetDepth();
-  
+      bool Insert(Bucket_Element);
     private:
      // Bucket(std::vector<Bucket_Element>&& chain, 
      //        size_t max_size, 
@@ -82,7 +89,7 @@ public:
     private:
       int m_id;
       size_t m_max_size;
-      int m_depth;
+      // int m_depth;
       std::vector<Bucket_Element> m_chain;
 
     private:

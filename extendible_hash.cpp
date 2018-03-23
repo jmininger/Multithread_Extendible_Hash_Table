@@ -11,11 +11,41 @@
     Public constructor
 */
 template <typename K, typename V>
-ExtendibleHash<K, V>::Bucket::Bucket(size_t max_size, int depth)
-:m_depth(depth)
+ExtendibleHash<K, V>::Bucket::Bucket(size_t max_size)
+:m_max_size(max_size)
 {
   m_chain = std::vector<Bucket_Element>();
   m_chain.reserve(max_size);
+}
+/*
+   Attempt to insert an element;
+*/
+template <typename K, typename V>
+bool ExtendibleHash<K, V>::Bucket::Insert(
+  typename ExtendibleHash<K, V>::Bucket_Element elem)
+{
+  m_chain_mutex.lock();
+  /* Enter Critical Section */
+  bool ret = false;
+  K key = elem.key;
+  auto iter = find_if(std::begin(m_chain), std::end(m_chain),
+                    [&key](Bucket_Element e){
+                      return (e.key == key);
+                    });
+  bool isUpdate = std::end(m_chain) != iter;
+  if(isUpdate)
+  {
+    iter->value = elem.value;
+    ret = true;
+  }
+  else if(m_chain.size() < m_max_size)
+  {
+    m_chain.push_back(elem);
+    ret = true;
+  }
+  /* Exit Critical Section */
+  m_chain_mutex.unlock();
+  return ret;
 }
 
 /*
@@ -49,22 +79,6 @@ ExtendibleHash<K, V>::Bucket::Bucket(size_t max_size, int depth)
 // bool ExtendibleHash<K, V>::Bucket::GetElem(const K &key, V &val)
 // {
 // }
-
-// /*
-//    Attempt to insert an element;
-// */
-// template <typename K, typename V>
-// bool ExtendibleHash<K, V>::Bucket::Insert(const K &key, const V &value)
-// {
-
- 
-// }
-
-template <typename K, typename V>
-int ExtendibleHash<K, V>::Bucket::GetDepth()
-{
-  return m_depth;  
-}
 
 // template <typename K, typename V>
 // bool ExtendibleHash<K, V>::Bucket::Remove(const K &key)
