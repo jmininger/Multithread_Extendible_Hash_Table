@@ -80,7 +80,9 @@ public:
       // bool IsDepthsEqual(int global) const;
       // bool GetElem(const K &key, V &val);
       // bool Remove(const K &key);
+      bool Find(const K& key, V& value);
       bool Insert(Bucket_Element);
+
     private:
      // Bucket(std::vector<Bucket_Element>&& chain, 
      //        size_t max_size, 

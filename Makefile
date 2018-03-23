@@ -32,7 +32,7 @@ CXXFLAGS += -g -Wall -Wextra -pthread -std=c++1z -I $(USER_DIR)
 
 # All tests produced by this Makefile.  Remember to add new tests you
 # created to the list.
-TESTS = bucket
+TESTS = bucket_test
 
 # All Google Test headers.  Usually you shouldn't change this
 # definition.
@@ -77,8 +77,8 @@ gtest_main.a : gtest-all.o gtest_main.o
 extendible_hash.o : $(USER_DIR)/extendible_hash.cpp $(USER_DIR)/extendible_hash.h $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_DIR)/extendible_hash.cpp
 
-bucket.o : $(TEST_DIR)/bucket.cpp $(USER_DIR)/extendible_hash.h $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(TEST_DIR)/bucket.cpp
+bucket_test.o : $(TEST_DIR)/bucket_test.cpp $(USER_DIR)/extendible_hash.h $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(TEST_DIR)/bucket_test.cpp
 
-bucket : extendible_hash.o bucket.o gtest_main.a
+bucket_test : extendible_hash.o bucket_test.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -lpthread $^ -o $@

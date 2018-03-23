@@ -48,6 +48,22 @@ bool ExtendibleHash<K, V>::Bucket::Insert(
   return ret;
 }
 
+template <typename K, typename V>
+bool ExtendibleHash<K, V>::Bucket::Find(const K& key, V& value)
+{
+  m_chain_mutex.lock_shared();
+  auto iter = find_if(std::begin(m_chain), std::end(m_chain),
+                    [&key](Bucket_Element e){
+                      return (e.key == key);
+                    });
+  bool isFound = iter != std::end(m_chain);
+  if(isFound)
+  {
+    value = iter->value;
+  }
+  m_chain_mutex.unlock_shared();
+  return isFound;
+}
 /*
     Private constructor makes a Bucket out of another bucket
 */
