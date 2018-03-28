@@ -1,26 +1,18 @@
 #include "gtest/gtest.h"
-#include "extendible_hash.cpp"
+#include "extendible_hash.h"
+#include "test_utils.h"
 
 #include <memory>
 #include <string>
 #include <thread>
 #include <functional>
 
-using Bucket = ExtendibleHash<int,std::string>::Bucket;
-using Bucket_Element = ExtendibleHash<int,std::string>::Bucket_Element;
-
-// class Bucket_Test : public ::testing::Test
-// {
-// 	virtual void SetUp()
-// 	{
-// 	}
-
-
-
-// };
 
 TEST(Bucket, can_insert_elements_one_at_a_time)
 {
+	using Bucket = ExtendibleHash<int,std::string, TestHash>::Bucket;
+	using Bucket_Element = ExtendibleHash<int,std::string,TestHash>::Bucket_Element;
+	
 	Bucket bucket{3};
 	auto p_bucket = &bucket;
 	std::string s = "HELLO";
@@ -44,6 +36,8 @@ TEST(Bucket, can_insert_elements_one_at_a_time)
 
 TEST(Bucket, can_single_threaded_search)
 {
+	using Bucket = ExtendibleHash<int,std::string, TestHash>::Bucket;
+	using Bucket_Element = ExtendibleHash<int,std::string,TestHash>::Bucket_Element;
 	Bucket bucket{3};
 	auto p_bucket = &bucket;
 	Bucket_Element elem1{1, "Hello"};
@@ -67,6 +61,8 @@ TEST(Bucket, can_single_threaded_search)
 
 TEST(Bucket, can_insert_concurrently)
 {
+	using Bucket = ExtendibleHash<int,std::string, TestHash>::Bucket;
+	using Bucket_Element = ExtendibleHash<int,std::string,TestHash>::Bucket_Element;
 	const int num_runs = 50;
   	const int num_threads = 5;
   // Run concurrent test multiple times to guarantee correctness.
@@ -127,6 +123,8 @@ TEST(Bucket, can_insert_concurrently)
 // };
 TEST(Bucket, can_remove)
 {
+	using Bucket = ExtendibleHash<int,std::string, TestHash>::Bucket;
+	using Bucket_Element = ExtendibleHash<int,std::string,TestHash>::Bucket_Element;
 	Bucket bucket{5};
 	auto p_bucket = &bucket;
 	Bucket_Element elem1{1, "Hello"};
@@ -156,10 +154,23 @@ TEST(Bucket, can_remove)
 
 
 }
+TEST(Bucket, can_add_and_retrieve_indices)
+{
+	using Bucket = ExtendibleHash<int,std::string, TestHash>::Bucket;
+
+	Bucket bucket{2};
+	auto p_bucket = &bucket;
+	p_bucket->AddIndex({0});
+	p_bucket->AddIndex({1});
+	p_bucket->AddIndex({2});
+	p_bucket->AddIndex({3});
+
+}
 
 TEST(Bucket, can_split_bucket)
 {
-
+	using Bucket = ExtendibleHash<int,std::string, TestHash>::Bucket;
+	using Bucket_Element = ExtendibleHash<int,std::string,TestHash>::Bucket_Element;
 	Bucket bucket{2};
 	auto p_bucket = &bucket;
 	Bucket_Element elem1{1, "Hello"};
@@ -172,16 +183,11 @@ TEST(Bucket, can_split_bucket)
 	EXPECT_EQ(0, p_new_bucket->CompareDepths(1));
 
 	std::string s;
-	EXPECT_EQ(true, p_new_bucket->Find(1, s) | p_bucket->Find(1,s));
-	EXPECT_EQ(true, p_new_bucket->Find(2, s) | p_bucket->Find(2,s));
-
-
-	// Bucket_Element elem3{3, "Foo"};
-	// Bucket_Element elem4{4, "Bar"};
-	// Bucket_Element elem5{5, "Baz"};
-	// p_bucket->Insert(elem3);
-	// p_bucket->Insert(elem4);
-	// p_bucket->Insert(elem5);
+	EXPECT_EQ(true, p_new_bucket->Find(1, s));
+	EXPECT_EQ(false, p_new_bucket->Find(2, s));
+	
+	EXPECT_EQ(true, p_bucket->Find(2, s));
+	EXPECT_EQ(false, p_bucket->Find(1, s));
 
 };
 

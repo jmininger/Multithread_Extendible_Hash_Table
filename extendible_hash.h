@@ -7,33 +7,45 @@
  * report that the PageId does not match any currently-buffered page.
  */
 
-#pragma once
+#ifndef EXTENDIBLE_HASH_H
+#define EXTENDIBLE_HASH_H
 
 #include <cstdlib>
 #include <vector>
 #include <string>
 #include <shared_mutex>
 #include <mutex>
-#include <unordered_map>
-#include <set>
+#include <initializer_list>
+#include <atomic>
+#include <gtest/gtest_prod.h>
 
-
-template <typename K, typename V>
+template <typename K, typename V, typename Hash=std::hash<K>>
 class ExtendibleHash {
-  //friend class Bucket;
-  public:
+
+private: 
+  FRIEND_TEST(Bucket, can_insert_elements_one_at_a_time);
+  FRIEND_TEST(Bucket, can_single_threaded_search);
+  FRIEND_TEST(Bucket, can_insert_concurrently);
+  FRIEND_TEST(Bucket, can_remove);
+  FRIEND_TEST(Bucket, can_split_bucket);
+  FRIEND_TEST(Bucket, can_add_and_retrieve_indices);
+
+
+private:
   class Bucket;
-  class BucketManager;
   struct Bucket_Element;
+
 public:
   // constructor
   ExtendibleHash(size_t size);
   // destructor  
-  ~ExtendibleHash();
+  //~ExtendibleHash();
   // helper function to generate hash addressing
   size_t HashKey(const K &key);
   // helper function to get global & local depth
   int GetGlobalDepth() const;
+  
+
   int GetLocalDepth(int bucket_id) const;
   int GetNumBuckets() const;
   // lookup and modifier
@@ -43,9 +55,13 @@ public:
 
 private:
   // add your own member variables here
-  size_t m_max_bucket_size; 
 
-public:
+  std::vector<std::unique_ptr<Bucket>> m_table;
+  std::atomic<int> m_global;
+  size_t m_max_bucket_size; 
+  mutable std::shared_timed_mutex m_table_mutex;
+
+private:
   class Bucket
   {
     public:      
@@ -53,11 +69,12 @@ public:
       bool Find(const K &key, V &value) const;//override
       bool Insert(Bucket_Element);//override
       void Remove(const K &key);//override 
-      Bucket* SplitBucket();
+      std::unique_ptr<Bucket> SplitBucket();
       int CompareDepths(int global);//Returns global-local
-      void AddIndex(size_t index);
+      void AddIndex(std::initializer_list<size_t>);
+      std::vector<size_t> GetIndices();
 
-    private:
+    // private:
       const size_t m_max_size;
 
       size_t m_shared_bits;
@@ -77,3 +94,5 @@ public:
     V value;
   };
 };
+
+#endif

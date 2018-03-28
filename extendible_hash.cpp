@@ -4,14 +4,14 @@
 #include <utility>
 
 #include "extendible_hash.h"
-
+#include "test_utils.h"
 
 /************************************************************************************/
 /*
     Public constructor
 */
-template <typename K, typename V>
-ExtendibleHash<K, V>::Bucket::Bucket(size_t max_size)
+template <typename K, typename V, typename Hash>
+ExtendibleHash<K, V, Hash>::Bucket::Bucket(size_t max_size)
 :m_max_size(max_size), m_shared_bits(0), m_depth(0)
 {
   m_indices.push_back(0);
@@ -23,9 +23,9 @@ ExtendibleHash<K, V>::Bucket::Bucket(size_t max_size)
 /*
    Insert an element;
 */
-template <typename K, typename V>
-bool ExtendibleHash<K, V>::Bucket::Insert(
-  typename ExtendibleHash<K, V>::Bucket_Element elem)
+template <typename K, typename V, typename Hash>
+bool ExtendibleHash<K, V, Hash>::Bucket::Insert(
+  typename ExtendibleHash<K, V, Hash>::Bucket_Element elem)
 {
   m_chain_mutex.lock();
   /* Enter Critical Section */
@@ -54,8 +54,8 @@ bool ExtendibleHash<K, V>::Bucket::Insert(
 /*
    Find an element;
 */
-template <typename K, typename V>
-bool ExtendibleHash<K, V>::Bucket::Find(const K& key, V& value) const
+template <typename K, typename V, typename Hash>
+bool ExtendibleHash<K, V, Hash>::Bucket::Find(const K& key, V& value) const
 {
   m_chain_mutex.lock_shared();
   auto iter = find_if(std::begin(m_chain), std::end(m_chain),
@@ -74,8 +74,8 @@ bool ExtendibleHash<K, V>::Bucket::Find(const K& key, V& value) const
 /*
    Remove an element;
 */
-template <typename K, typename V>
-void ExtendibleHash<K, V>::Bucket::Remove(const K &key)
+template <typename K, typename V, typename Hash>
+void ExtendibleHash<K, V, Hash>::Bucket::Remove(const K &key)
 {
     m_chain_mutex.lock();
     auto iter = find_if(std::begin(m_chain), std::end(m_chain),
@@ -90,15 +90,21 @@ void ExtendibleHash<K, V>::Bucket::Remove(const K &key)
 }
 
 
-template <typename K, typename V>
-typename ExtendibleHash<K, V>::Bucket* ExtendibleHash<K, V>::Bucket::SplitBucket()
+template <typename K, typename V, typename Hash>
+std::unique_ptr<typename ExtendibleHash<K, V, Hash>::Bucket> 
+ExtendibleHash<K, V, Hash>::Bucket::SplitBucket()
 {
-  using Bucket = typename ExtendibleHash<K, V>::Bucket;
-  using Bucket_Element = typename ExtendibleHash<K, V>::Bucket_Element;
+  using Bucket = typename ExtendibleHash<K, V, Hash>::Bucket;
+  using Bucket_Element = typename ExtendibleHash<K, V, Hash>::Bucket_Element;
+  
+  m_chain_mutex.lock();
 
-  auto p_new_bucket = new Bucket(m_max_size);
-  p_new_bucket->m_shared_bits = m_shared_bits & (1 << m_depth);
+  auto p_new_bucket = std::unique_ptr<Bucket>{new Bucket(m_max_size)};
+
+  m_depth++;
   p_new_bucket->m_depth = m_depth;
+  p_new_bucket->m_shared_bits = m_shared_bits & (1 << m_depth);
+
 
   size_t bitmask = (1 << m_depth)-1;
   size_t new_shared_bits = p_new_bucket->m_shared_bits;
@@ -106,11 +112,11 @@ typename ExtendibleHash<K, V>::Bucket* ExtendibleHash<K, V>::Bucket::SplitBucket
   auto chn_prtn_iter = std::partition(std::begin(m_chain), std::end(m_chain), 
                   [bitmask, new_shared_bits](Bucket_Element elem)
                   {
-                      std::hash<K> hash{};
-                      return((hash(elem.key) & bitmask) != new_shared_bits);
+                      Hash hash{};
+                      return((hash(elem.key) & bitmask) == new_shared_bits);
                   });
   std::copy(chn_prtn_iter, std::end(m_chain),back_inserter(p_new_bucket->m_chain));
-  m_chain.erase(std::begin(m_chain), chn_prtn_iter);
+  m_chain.erase(chn_prtn_iter, std::end(m_chain));
 
   auto ind_prtn_iter = std::partition(std::begin(m_indices), std::end(m_indices), 
                   [bitmask, new_shared_bits](size_t index)
@@ -118,59 +124,74 @@ typename ExtendibleHash<K, V>::Bucket* ExtendibleHash<K, V>::Bucket::SplitBucket
                       return((index & bitmask) != new_shared_bits);
                   });
   std::copy(ind_prtn_iter, std::end(m_indices),back_inserter(p_new_bucket->m_indices));
-  m_indices.erase(std::begin(m_indices), ind_prtn_iter);
+  m_indices.erase(ind_prtn_iter, std::end(m_indices));
+
+  m_chain_mutex.unlock();
   
-  m_depth++;
-  p_new_bucket->m_depth++;
   return p_new_bucket;
 }
 
 
-template <typename K, typename V>
-int ExtendibleHash<K, V>::Bucket::CompareDepths(int global)
+template <typename K, typename V, typename Hash>
+int ExtendibleHash<K, V, Hash>::Bucket::CompareDepths(int global)
 {
   return (global - m_depth);
 }
+template <typename K, typename V, typename Hash>
+void ExtendibleHash<K, V, Hash>::Bucket::AddIndex(std::initializer_list<size_t> init_list)
+{
+  //assert init_list.size() > acceptable#of inidices given the depth
+  m_indices.insert(std::end(m_indices), init_list);
+}
 
-// /************************************************************************************/
-// /*
-//  * constructor
-//  * array_size: fixed array size for each bucket
-//  */
+template <typename K, typename V, typename Hash>
+std::vector<size_t>  ExtendibleHash<K, V, Hash>::Bucket::GetIndices()
+{
+  return m_indices;
+}
+/************************************************************************************/
+/*
+ * constructor
+ * array_size: fixed array size for each bucket
+ */
+template <typename K, typename V, typename Hash>
+ExtendibleHash<K, V, Hash>::ExtendibleHash(size_t size): 
+m_global(1), m_max_bucket_size(size)
+{
+  std::unique_ptr<Bucket> b1{new Bucket(m_max_bucket_size)};
+  b1->AddIndex({0});
+  m_table.push_back(std::move(b1));
+
+  std::unique_ptr<Bucket> b2{new Bucket(m_max_bucket_size)};
+  b2->AddIndex({1});
+  m_table.push_back(std::move(b2));
+
+}
+
 // template <typename K, typename V>
-// ExtendibleHash<K, V>::ExtendibleHash(size_t size): m_max_bucket_size(size) 
-// {
-	
-
-// }
-
-// template <typename K, typename V>
-// ExtendibleHash<K, V>::~ExtendibleHash() 
-// {
+// ExtendibleHash<K, V, Hash>::~ExtendibleHash() 
  
 // }
 
-// /*
-//  * helper function to calculate the hashing address of input key
-//  */
-// template <typename K, typename V>
-// size_t ExtendibleHash<K, V>::HashKey(const K &key) {
-//   return std::hash<K>{}(key);
-// }
+/*
+ * helper function to calculate the hashing address of input key
+ */
+template <typename K, typename V, typename Hash>
+size_t ExtendibleHash<K, V, Hash>::HashKey(const K &key) {
+  int global = m_global;
+  int bitmask = ((1 << (global+1))-1);
+  return bitmask & Hash{}(key);
+}
 
-// template <typename K, typename V>
-// size_t ExtendibleHash<K, V>::GetIndex(size_t hash)
-// {
-  
-// }
-
-// /*
-//  * helper function to return global depth of hash table
-//  * NOTE: you must implement this function in order to pass test
-//  */
-// template <typename K, typename V>
-// int ExtendibleHash<K, V>::GetGlobalDepth() const {
-// }
+/*
+ * helper function to return global depth of hash table
+ * NOTE: you must implement this function in order to pass test
+ */
+template <typename K, typename V, typename Hash>
+int ExtendibleHash<K, V, Hash>::GetGlobalDepth() const 
+{
+  return m_global;
+}
 
 // /*
 //  * helper function to return local depth of one specific bucket
@@ -232,6 +253,9 @@ int ExtendibleHash<K, V>::Bucket::CompareDepths(int global)
 // }
 
 // test purpose
+
+
+template class ExtendibleHash<int, std::string, TestHash>;
 template class ExtendibleHash<int, std::string>;
 template class ExtendibleHash<int, std::list<int>::iterator>;
 template class ExtendibleHash<int, int>;
