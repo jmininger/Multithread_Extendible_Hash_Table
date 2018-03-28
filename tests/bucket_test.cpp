@@ -173,8 +173,8 @@ TEST(Bucket, can_split_bucket)
 	using Bucket_Element = ExtendibleHash<int,std::string,TestHash>::Bucket_Element;
 	Bucket bucket{2};
 	auto p_bucket = &bucket;
-	Bucket_Element elem1{1, "Hello"};
-	Bucket_Element elem2{2, "World"};
+	Bucket_Element elem1{0, "Hello"};
+	Bucket_Element elem2{1, "World"};
 	p_bucket->Insert(elem1);
 	p_bucket->Insert(elem2);
  
@@ -183,11 +183,12 @@ TEST(Bucket, can_split_bucket)
 	EXPECT_EQ(0, p_new_bucket->CompareDepths(1));
 
 	std::string s;
-	EXPECT_EQ(true, p_new_bucket->Find(1, s));
-	EXPECT_EQ(false, p_new_bucket->Find(2, s));
 	
-	EXPECT_EQ(true, p_bucket->Find(2, s));
+	EXPECT_EQ(true, p_bucket->Find(0, s));
 	EXPECT_EQ(false, p_bucket->Find(1, s));
+
+	EXPECT_EQ(true, p_new_bucket->Find(1, s));
+	EXPECT_EQ(false, p_new_bucket->Find(0, s));
 
 };
 

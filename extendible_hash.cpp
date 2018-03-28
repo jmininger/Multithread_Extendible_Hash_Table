@@ -103,7 +103,7 @@ ExtendibleHash<K, V, Hash>::Bucket::SplitBucket()
 
   m_depth++;
   p_new_bucket->m_depth = m_depth;
-  p_new_bucket->m_shared_bits = m_shared_bits & (1 << m_depth);
+  p_new_bucket->m_shared_bits = m_shared_bits | (1 << (m_depth-1));
 
 
   size_t bitmask = (1 << m_depth)-1;
@@ -113,7 +113,7 @@ ExtendibleHash<K, V, Hash>::Bucket::SplitBucket()
                   [bitmask, new_shared_bits](Bucket_Element elem)
                   {
                       Hash hash{};
-                      return((hash(elem.key) & bitmask) == new_shared_bits);
+                      return((hash(elem.key) & bitmask) != new_shared_bits);
                   });
   std::copy(chn_prtn_iter, std::end(m_chain),back_inserter(p_new_bucket->m_chain));
   m_chain.erase(chn_prtn_iter, std::end(m_chain));

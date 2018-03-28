@@ -8,7 +8,7 @@
 
 struct TestHash
 {
-  size_t operator()(int i)
+  size_t operator()(size_t i)
   {
     return i;
   }
