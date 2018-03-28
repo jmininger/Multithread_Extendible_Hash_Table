@@ -12,13 +12,16 @@
 */
 template <typename K, typename V>
 ExtendibleHash<K, V>::Bucket::Bucket(size_t max_size)
-:m_max_size(max_size)
+:m_max_size(max_size), m_shared_bits(0), m_depth(0)
 {
+  m_indices.push_back(0);
+  m_indices.push_back(1);
   m_chain = std::vector<Bucket_Element>();
   m_chain.reserve(max_size);
 }
+
 /*
-   Attempt to insert an element;
+   Insert an element;
 */
 template <typename K, typename V>
 bool ExtendibleHash<K, V>::Bucket::Insert(
@@ -48,8 +51,11 @@ bool ExtendibleHash<K, V>::Bucket::Insert(
   return ret;
 }
 
+/*
+   Find an element;
+*/
 template <typename K, typename V>
-bool ExtendibleHash<K, V>::Bucket::Find(const K& key, V& value)
+bool ExtendibleHash<K, V>::Bucket::Find(const K& key, V& value) const
 {
   m_chain_mutex.lock_shared();
   auto iter = find_if(std::begin(m_chain), std::end(m_chain),
@@ -64,43 +70,68 @@ bool ExtendibleHash<K, V>::Bucket::Find(const K& key, V& value)
   m_chain_mutex.unlock_shared();
   return isFound;
 }
+
 /*
-    Private constructor makes a Bucket out of another bucket
+   Remove an element;
 */
+template <typename K, typename V>
+void ExtendibleHash<K, V>::Bucket::Remove(const K &key)
+{
+    m_chain_mutex.lock();
+    auto iter = find_if(std::begin(m_chain), std::end(m_chain),
+                    [&key](Bucket_Element e){
+                      return (e.key == key);
+                    });
+    if(iter != std::end(m_chain))
+    {
+      m_chain.erase(iter);
+    }
+    m_chain_mutex.unlock();
+}
 
-// template <typename K, typename V>
-// ExtendibleHash<K, V>::Bucket::Bucket(
-//     std::vector<Bucket_Element>&& chain,
-//     size_t max_size, 
-//     int depth):
-// m_depth(depth)
-// {
-//   m_chain = chain;
-//   m_chain.reserve(max_size);
 
-// }
+template <typename K, typename V>
+typename ExtendibleHash<K, V>::Bucket* ExtendibleHash<K, V>::Bucket::SplitBucket()
+{
+  using Bucket = typename ExtendibleHash<K, V>::Bucket;
+  using Bucket_Element = typename ExtendibleHash<K, V>::Bucket_Element;
 
-// /*
-//     Compare the local and global depths
-// */
-// template <typename K, typename V>
-// bool ExtendibleHash<K, V>::Bucket::IsDepthsEqual(int global) const
-// {
-// }
+  auto p_new_bucket = new Bucket(m_max_size);
+  p_new_bucket->m_shared_bits = m_shared_bits & (1 << m_depth);
+  p_new_bucket->m_depth = m_depth;
 
-// /*
-//    Search for an element within a bucket
-// */
-// template <typename K, typename V>
-// bool ExtendibleHash<K, V>::Bucket::GetElem(const K &key, V &val)
-// {
-// }
+  size_t bitmask = (1 << m_depth)-1;
+  size_t new_shared_bits = p_new_bucket->m_shared_bits;
+  
+  auto chn_prtn_iter = std::partition(std::begin(m_chain), std::end(m_chain), 
+                  [bitmask, new_shared_bits](Bucket_Element elem)
+                  {
+                      std::hash<K> hash{};
+                      return((hash(elem.key) & bitmask) != new_shared_bits);
+                  });
+  std::copy(chn_prtn_iter, std::end(m_chain),back_inserter(p_new_bucket->m_chain));
+  m_chain.erase(std::begin(m_chain), chn_prtn_iter);
 
-// template <typename K, typename V>
-// bool ExtendibleHash<K, V>::Bucket::Remove(const K &key)
-// {
- 
-// }
+  auto ind_prtn_iter = std::partition(std::begin(m_indices), std::end(m_indices), 
+                  [bitmask, new_shared_bits](size_t index)
+                  {
+                      return((index & bitmask) != new_shared_bits);
+                  });
+  std::copy(ind_prtn_iter, std::end(m_indices),back_inserter(p_new_bucket->m_indices));
+  m_indices.erase(std::begin(m_indices), ind_prtn_iter);
+  
+  m_depth++;
+  p_new_bucket->m_depth++;
+  return p_new_bucket;
+}
+
+
+template <typename K, typename V>
+int ExtendibleHash<K, V>::Bucket::CompareDepths(int global)
+{
+  return (global - m_depth);
+}
+
 // /************************************************************************************/
 // /*
 //  * constructor
