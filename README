@@ -1,0 +1,15 @@
+To run tests:
+	make test
+	./bucket_test 
+	./extendible_table_test
+
+Note: This project has been stripped from a larger project (a buffer pool manager for SQLite) which has affected certain design decisions (in particular, nested bucket/bucket_element classes and explicit template instantiation)
+
+Based on Ronald Fagin's model of a dynamic hash table for files (https://researcher.watson.ibm.com/researcher/files/us-fagin/tods79.pdf) 
+
+The following methods are supported:
+	bool Find(const K &key, V &value);
+	bool Remove(const K &key);
+	void Insert(const K &key, const V &value);
+
+The table supports dynamic growth but does not support shrinking

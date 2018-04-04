@@ -17,20 +17,19 @@
 #include <mutex>
 #include <initializer_list>
 #include <atomic>
-#include <gtest/gtest_prod.h>
+#include "gtest/gtest_prod.h"
 
 template <typename K, typename V, typename Hash=std::hash<K>>
 class ExtendibleHash {
 
 private: 
+  FRIEND_TEST(Table, can_insert_elements_one_at_a_time);
   FRIEND_TEST(Bucket, can_insert_elements_one_at_a_time);
   FRIEND_TEST(Bucket, can_single_threaded_search);
   FRIEND_TEST(Bucket, can_insert_concurrently);
   FRIEND_TEST(Bucket, can_remove);
   FRIEND_TEST(Bucket, can_split_bucket);
   FRIEND_TEST(Bucket, can_add_and_retrieve_indices);
-
-
 private:
   class Bucket;
   struct Bucket_Element;
@@ -54,9 +53,10 @@ public:
   void Insert(const K &key, const V &value);
 
 private:
+  void DoubleTable();
   // add your own member variables here
 
-  std::vector<std::unique_ptr<Bucket>> m_table;
+  std::vector<std::shared_ptr<Bucket>> m_table;
   std::atomic<int> m_global;
   size_t m_max_bucket_size; 
   mutable std::shared_timed_mutex m_table_mutex;
@@ -64,17 +64,23 @@ private:
 private:
   class Bucket
   {
+    FRIEND_TEST(Bucket, can_insert_elements_one_at_a_time);
+    FRIEND_TEST(Bucket, can_single_threaded_search);
+    FRIEND_TEST(Bucket, can_insert_concurrently);
+    FRIEND_TEST(Bucket, can_remove);
+    FRIEND_TEST(Bucket, can_split_bucket);
+    FRIEND_TEST(Bucket, can_add_and_retrieve_indices);
     public:      
       explicit Bucket(size_t size);
       bool Find(const K &key, V &value) const;//override
       bool Insert(Bucket_Element);//override
-      void Remove(const K &key);//override 
-      std::unique_ptr<Bucket> SplitBucket();
+      bool Remove(const K &key);//override 
+      std::shared_ptr<Bucket> SplitBucket();
       int CompareDepths(int global);//Returns global-local
       void AddIndex(std::initializer_list<size_t>);
       std::vector<size_t> GetIndices();
 
-    // private:
+    private:
       const size_t m_max_size;
 
       size_t m_shared_bits;

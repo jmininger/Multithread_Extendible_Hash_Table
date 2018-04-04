@@ -1,6 +1,4 @@
 *.o
 *.a
 
-eh_string_int.cc
-eh_string_int.h
 

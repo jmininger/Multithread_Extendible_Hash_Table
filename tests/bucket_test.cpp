@@ -7,6 +7,8 @@
 #include <thread>
 #include <functional>
 
+//#include <iostream>
+
 
 TEST(Bucket, can_insert_elements_one_at_a_time)
 {
@@ -160,11 +162,11 @@ TEST(Bucket, can_add_and_retrieve_indices)
 
 	Bucket bucket{2};
 	auto p_bucket = &bucket;
-	p_bucket->AddIndex({0});
-	p_bucket->AddIndex({1});
-	p_bucket->AddIndex({2});
-	p_bucket->AddIndex({3});
-
+	p_bucket->AddIndex({0,1,2,3});
+	auto indices = p_bucket->GetIndices();
+	EXPECT_NE(indices.end(), find(indices.begin(), indices.end(), 1));
+	EXPECT_NE(indices.end(), find(indices.begin(), indices.end(), 2));
+	EXPECT_NE(indices.end(), find(indices.begin(), indices.end(), 3));
 }
 
 TEST(Bucket, can_split_bucket)
@@ -173,6 +175,7 @@ TEST(Bucket, can_split_bucket)
 	using Bucket_Element = ExtendibleHash<int,std::string,TestHash>::Bucket_Element;
 	Bucket bucket{2};
 	auto p_bucket = &bucket;
+	p_bucket->AddIndex({0,1});
 	Bucket_Element elem1{0, "Hello"};
 	Bucket_Element elem2{1, "World"};
 	p_bucket->Insert(elem1);
@@ -189,6 +192,15 @@ TEST(Bucket, can_split_bucket)
 
 	EXPECT_EQ(true, p_new_bucket->Find(1, s));
 	EXPECT_EQ(false, p_new_bucket->Find(0, s));
+
+	EXPECT_EQ(1, (int)p_bucket->m_chain.size());
+	EXPECT_EQ(1, (int)p_new_bucket->m_chain.size());
+
+	EXPECT_EQ(0, (int)p_bucket->m_indices[0]);
+	EXPECT_EQ(1, (int)p_new_bucket->m_indices[0]);
+	EXPECT_EQ(1, (int)p_bucket->m_indices.size());
+	EXPECT_EQ(1, (int)p_new_bucket->m_indices.size());
+
 
 };
 

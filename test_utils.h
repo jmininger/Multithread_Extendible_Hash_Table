@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <list>
 
+//Simple hash functor that returns its input
 struct TestHash
 {
   size_t operator()(size_t i)

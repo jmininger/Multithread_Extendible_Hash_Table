@@ -1,7 +1,4 @@
-# A sample Makefile for building Google Test and using it in user
-# tests.  Please tweak it to suit your environment and project.  You
-# may want to move it to your project's root directory.
-#
+
 # SYNOPSIS:
 #
 #   make [all]  - makes everything.
@@ -14,7 +11,7 @@
 
 # Points to the root of Google Test, relative to where this file is.
 # Remember to tweak this if you move this file.
-GTEST_DIR = /Users/Jacquin/Desktop/Recurse_Center/TLSF_memory_allocator/googletest/googletest
+GTEST_DIR = googletest/googletest
 
 # Where to find user code.
 USER_DIR = .
@@ -25,7 +22,7 @@ CXX = g++
 # Flags passed to the preprocessor.
 # Set Google Test's header directory as a system directory, such that
 # the compiler doesn't generate warnings in Google Test headers.
-CPPFLAGS += -isystem $(GTEST_DIR)/include/gtest
+CPPFLAGS += -isystem $(GTEST_DIR)/include
 
 # Flags passed to the C++ compiler.
 CXXFLAGS += -g -Wall -Wextra -pthread -std=c++1z -I $(USER_DIR)
@@ -41,7 +38,7 @@ GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
 
 # House-keeping build targets.
 
-all : $(TESTS)
+test : $(TESTS)
 
 clean :
 	rm -f $(TESTS) gtest.a gtest_main.a *.o
